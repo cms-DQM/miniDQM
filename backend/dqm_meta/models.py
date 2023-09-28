@@ -102,7 +102,7 @@ class DqmMetaStore(RootModel):
                 else:
                     # Initialize dict(run:era) of eos_directory, it's apperaing first time since it is not in "result" dict
                     result[item.eos_directory] = {item.run: item.era}
-                    # Set new group as deaultdict in the dict
+                    # Set new group as defaultdict in the dict
                     group_era_run_counts[item.eos_directory] = defaultdict(int)
                     # Increment the group's era run count by one
                     group_era_run_counts[item.eos_directory][item.era] += 1

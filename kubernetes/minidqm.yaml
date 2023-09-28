@@ -1,10 +1,11 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: ppd-dashboard
+  name: minidqm
+  namespace: dqm
 spec:
   selector:
-    app: ppd-dashboard
+    app: minidqm
   type: NodePort
   ports:
     - name: backend
@@ -21,25 +22,26 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ppd-dashboard
+  name: minidqm
+  namespace: dqm
   labels:
-    app: ppd-dashboard
+    app: minidqm
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ppd-dashboard
+      app: minidqm
   template:
     metadata:
       labels:
-        app: ppd-dashboard
+        app: minidqm
     spec:
-      hostname: ppd-dashboard
+      hostname: minidqm
       containers:
         # ------------- BACKEND ------------------------------------------------------
         - name: backend
           imagePullPolicy: Always
-          image: mrceyhun/ppd-dashboard-back:latest
+          image: registry.cern.ch/cmsweb/minidqm-back:latest
           command: [ "backend/run.sh" ]
           args: [ "/etc/secrets/keytab" ]
           env:
@@ -64,7 +66,7 @@ spec:
           stdin: true
           tty: true
           volumeMounts:
-            - name: ppd-dashboard-secrets
+            - name: minidqm-secrets
               mountPath: /etc/secrets
               readOnly: true
             - name: eos
@@ -73,7 +75,7 @@ spec:
         # ------------- FRONTEND -----------------------------------------------------
         - name: frontend
           imagePullPolicy: Always
-          image: mrceyhun/ppd-dashboard-front:latest
+          image: registry.cern.ch/cmsweb/minidqm-front:latest
           command: [ "/run.sh" ]
           env:
             - name: MY_NODE_NAME
@@ -83,7 +85,7 @@ spec:
             - name: K8S_ENV
               value: "prod"
             - name: VITE_BACKEND_API_BASE_URL # see frontend/src/main.js and frontend/run.sh, used in axios
-              value: "http://$(MY_NODE_NAME):32001/ppd-dashboard/api"
+              value: "http://$(MY_NODE_NAME):32001/minidqm/api"
           ports:
             - containerPort: 80
               name: frontend
@@ -95,9 +97,9 @@ spec:
               cpu: 500m
               memory: 750Mi
       volumes:
-        - name: ppd-dashboard-secrets
+        - name: minidqm-secrets
           secret:
-            secretName: ppd-dashboard-secrets
+            secretName: minidqm-secrets
         - name: eos
           hostPath:
             path: /var/eos

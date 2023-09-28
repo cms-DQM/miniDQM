@@ -1,15 +1,13 @@
-# ppd-dashboard
-In Progress
+# miniDQM frontend
 
-## Project Setup
+## Dev run
 
 ```sh
 rm -rf node_modules
 npm cache clean --force
 npm i
-npm ci
 npm run dev
-http://localhost:5173/
+http://localhost:8080/
 ```
 
 ## Refs:

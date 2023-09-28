@@ -11,7 +11,7 @@ export default [
     icon: mdiGithub,
     label: "GitHub",
     isDesktopNoLabel: true,
-    href: "https://github.com/mrceyhun/ppdgui",
+    href: "https://github.com/cms-DQM/miniDQM",
     target: "_blank",
   },
   {

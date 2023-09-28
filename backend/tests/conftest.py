@@ -4,17 +4,17 @@
 Author      : Ceyhun Uzunoglu <ceyhunuzngl AT gmail [DOT] com>
 Description : Pytest FastAPI test client initializer
 """
-import pathlib, shutil, os
-from typing import Any, Generator, List
+import pathlib
+import shutil
 from datetime import datetime
+from typing import Any, Generator, List
 
-
-from ROOT import TFile, TH1F
 import pytest
+from ROOT import TFile, TH1F
 from fastapi.testclient import TestClient
 
-from backend.main import app
 from backend.config import get_config, Config, ConfigPlotsGroup
+from backend.main import app
 
 
 @pytest.fixture(scope="session")
@@ -43,7 +43,7 @@ def era_run_jump() -> int:
 
 
 @pytest.fixture(scope="session")
-def era_suffixes() -> int:
+def era_suffixes() -> List[str]:
     return ["A", "B", "C", "D", "E"]
 
 
@@ -58,11 +58,10 @@ def fast_api_client_test() -> Generator[TestClient, Any, None]:
 def create_histograms_for_test(config_test, run_size, era_suffixes, init_run_num, era_run_jump) -> List[str]:
     """Create all histograms in plots.yaml for each group and each era.
 
-    To not include another parameter in pytest as "--basetemp", tmp_path_factory is not used
     example eos dir: /eos/cms/store/group/comm_dqm/DQMGUI_data/Run2023/JetMET1/0003707xx/DQM_V0001_R000370717__JetMET1__Run2023D-PromptReco-v2__DQMIO.root
     """
     all_created_files = []
-    # Mock up the base DQM EOS dirctory for root files
+    # Mock up the base DQM EOS directory for root files
     year = datetime.now().year
     base_directory = pathlib.Path(config_test.dqm_meta_store.base_dqm_eos_dir) / f"Run{year}"
 
@@ -98,8 +97,8 @@ def create_histograms_for_test(config_test, run_size, era_suffixes, init_run_num
 def util_create_root_hist(root_file: str, group_conf: ConfigPlotsGroup, run: int):
     """Creates test histograms in th root file with the definitions in plots.yaml config only for TH1F
 
-    PYROOT has limited functionalities to create object sub directory and iterate it. That's why, iterating all
-    the sub directories and creating them, writing test plot to that directory is only possible with this way.
+    PYROOT has limited functionalities to create object subdirectory and iterate it. That's why, iterating all
+    the subdirectories and creating them, writing test plot to that directory is only possible with this way.
     """
     tdirectory = group_conf.tdirectory.format(run_num_int=run)
     tdirectory_subdir_list = tdirectory.split("/")
@@ -114,7 +113,7 @@ def util_create_root_hist(root_file: str, group_conf: ConfigPlotsGroup, run: int
         for d in tdirectory_subdir_list[1:]:  # skip first parent dir which is already created
             pivot_main_dir = pivot_main_dir.mkdir(d)
 
-        # === Create sub directories of histograms which come in their name actually
+        # === Create sub-directories of histograms which come in their name actually
         for plot_subdirs in plot_subdir_list:
             pivot_plot_dir = pivot_main_dir  # start from the child directory of tdirectory
             for d in plot_subdirs:  # Iterate pivot subdirs and create if not exist

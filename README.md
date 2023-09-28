@@ -1,63 +1,65 @@
-# ppd-dashboard
+# miniDQM
 
-CMS PPD Physics Run Monitoring
+CMS PPD Physics Run Monitoring Using DQM
 
-Main Endpoint: http://ceyhun-k8s-lbva4duqns2g-node-0:32000 // accessible only in CERN network
+## What it is
 
-### How frontend works
+miniDQM provides overlaying functionality for the histograms defined in [plots.yaml](backend/config/plots.yaml) using
+ROOT THStack. Its difference is to be able to overlay 10s of runs of ERAs in single drawing. Source histograms are
+fetched directly from DQM ROOT files and no operation are applied on the data itself other than changing line colors and
+styles to differentiate in the overlays. You can select defined groups, ERAs and RUNs of them and compare them
+intelligently:
 
-- You have to provide root file name and object directory of that root file in the input bars:
-- *Example*:
-    - Go to: http://ceyhun-k8s-lbva4duqns2g-node-0:32000
-    - **ROOT File EOS
-      Path** : `/eos/cms/store/group/comm_dqm/DQMGUI_data/Run2023/SpecialHLTPhysics15/0003667xx/DQM_V0001_R000366713__SpecialHLTPhysics15__Run2023B-PromptReco-v1__DQMIO.root`
-    - **TDirectory Path Inside ROOT File** :`DQMData/Run 366713/EcalPreshower/Run summary/ESRecoSummary`
-    - Hit `Show` button and see 5 histograms which are directly read from EOS and their JSONs are rendered using JSROOT.
+- if multiple ERAs are selected, each ERA RUN color will be same but RUNs of same ERA will have different line style
+- if one ERA is selected, line colors and styles will be different for each RUN.
 
-### How backend works
+## How it works
 
-- Pretty basic FastAPI, PyROOT and tests. Reads root file and returns JSONs (bit complicated than that :blush: ).
-- We use mounted `/eos` in k8s so we can access CERN wide accessible EOS directories with proper kerberos
-  authentication.
-- ROOT files are read directly from EOS and histograms return with their JSON representation to the frontend.
-- All the heavy work is carried on backend side and only JSON results send as responses.
+Like all systems, this service also has inputs and output: pretty Tailwind/Vue/JsROOT powered frontend page. Inputs are
+defined [plots.yaml](backend/config/plots.yaml) specific and easy to understand format with DQM ROOT files in their EOS
+storage. Our parser service [eos_grinder](backend/dqm_meta/eos_grinder.py) parses all ROOT files with required metadata
+information and these metadata used to fetch required histograms from ROOT files. Someone might think that reading
+hundreds of ROOT files, getting histograms from them and stacking them is expensive operation, right! Because of this,
+ROOT files access is limited to only getting JSON data of histograms and close them. All the operations are based on
+histogram JSON data and features of PYROOT and JSROOT in front-end. Additionally, there is an LRU cache of python
+function tools to not keep same histogram of same ROOT file in cache. I can say that speed is not problem if its usage
+increase over time. Another cache mechanism to store JSON representation of histograms can be implemented easily.
 
-### Repository structure
+### Backend
 
-Each folder includes its README.md file to understand details such as how to run server, how to build and push docker image, how to create new GH tag, etc.
+Backend can be separated to its clients and backend server
 
-- **backend**:  FastAPI, PyROOT, tests, its Dockerfile
-- **frontend**:  Vue.js, Vite(just for vue deployment and build), tailwind CSS, JSROOT, its Dockerfile
-- **kubernetes**:  ppd-dashboard.yaml Kubernetes manifest file for both Frontend and Backend deployment
-- **.github/workflows**: CI, GitHub actions that automatically builds docker images of both frontend and backend, and pushes to docker registry:
-    - https://hub.docker.com/repository/docker/mrceyhun/ppd-dashboard-front
-    - https://hub.docker.com/repository/docker/mrceyhun/ppd-dashboard-back
+##### - FastAPI
 
+[FastAPI](https://fastapi.tiangolo.com/) is used as web server. It is asynchronous and heavily dependent on pydantic
+classes that makes typless-ness hell of python more desirable. It has a few API endpoints, main endpoint is to just get
+histograms. All communication between fron-back ends depend on JSON representation of histograms.
 
-## Kubernetes
+##### - DQM META
 
-### Backend container details
+DQM META consists of two components : eos grinder and client. EOS grinder is parses DQM ROOT files for all RUNs and
+creates a JSON file parsed data. To get all the ROOT files in a base EOS directory, special Linux `find` command run
+with subprocess. In deployment, EOS grinder runs hourly to update metadata information. Its input is base DQM EOS
+directory and output is JSON file contains metadata.
 
-- We could not solve `kinit -k -t keytab $principle`, preauthentication fails but `kinit $principle` works. Still
-  debugging. Probably it's lack of a library, but I could not find it in ubuntu.
-- We provide config.yaml in configMap which includes backend server details.
-- Cron is to update kerberos ticket automatically however keytab problem prevent to use it.
-- Currently, it's running with manual kinit and background job `python backend/main.py >>/proc/1/fd/1 2>&1 &`.
-- SwaggerUI can be accessible in http://ceyhun-k8s-lbva4duqns2g-node-0:32001/docs
+DQM meta store client is responsible to create pydantic metadata object and functionalities to reach metadata. It reads
+JSON file output of EOS grinder and converts to pydantic object. Anything that is required like all ROOT files of
+Run2023A era, or dataset of an ROOT file can be found in the DQM meta store client. Pydantic model class itself has most
+of the functionality even though file name is models.
 
-### Frontend container details
+##### - PYROOT
 
-- Normally, it is not advised to run both front/back ends in the same pod. However, this is just for test.
-- One workaround is to provide backend API base url to the frontend service in run time.
-    - We provide backend base url to `axios` so we don't define it in each axios request.
-    - It is provided in `frontend/src/main.js`
-    - We cannot use vite env variable feature of https://vitejs.dev/guide/env-and-mode.html because we build our service
-      and run nginx.
-    - So, we use a custom solution after build to replace env variable name with `sed`
-      in `substitute_environment_variables.sh` before running `nginx`.
+PyROOT is used to fetch JSON data of histograms and overlay them. Main functionality is to read histogram JSON as
+efficiently as possible. Second important functionality is to overlay histograms. JSROOT is also capable of
+overlaying/stacking histograms using THStack. However, when the size of histograms considered, it made sense to do
+creation of THSTack object from histograms and send THStack TCanvas to frontend. Frontend(JSROOT) only deals with
+drawing JSON data with these features of backend.
 
-## Internal documentations
+### Docker images and Kubernetes
 
-- [kubernetes/README.md](kubernetes/README.md)
-- [frontend/README.md](frontend/README.md)
-- [.github/workflows/README.md](.github/workflows/README.md)
+Docker images are auto build with GH actions, and pushed to CERN registry.
+Kubernetes manifest file can be found
+in [minidqm.yaml](https://github.com/dmwm/CMSKubernetes/tree/master/kubernetes/cmsweb/services/minidqm.yaml). Deployment
+is single
+pod with 2 containers for backend and frontend.
+

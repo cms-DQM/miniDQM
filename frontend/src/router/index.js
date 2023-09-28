@@ -4,7 +4,7 @@ import { createRouter, createWebHashHistory } from "vue-router";
 const routes = [
   {
     meta: {
-      title: "PPD Dashboard",
+      title: "miniDQM",
     },
     path: "/",
     name: "dashboard",

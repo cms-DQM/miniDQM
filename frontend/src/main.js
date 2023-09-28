@@ -1,3 +1,7 @@
+/**
+Author: Ceyhun Uzunoglu <ceyhunuzngl AT gmail [DOT] com>
+*/
+
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 
@@ -14,8 +18,7 @@ import "./css/main.css";
 const isEnvDev = import.meta.env.DEV;
 // console.log("[DEBUG] isEnvDev:" + isEnvDev);
 if (isEnvDev) {
-  // axios.defaults.baseURL = "http://ceyhun-k8s-lbva4duqns2g-node-0:32001/ppd-dashboard/api";
-  axios.defaults.baseURL = "http://ceyhun-vm.cern.ch:8081/ppd-dashboard/api";
+  axios.defaults.baseURL = "http://localhost:8081/minidqm/api";
   console.log("[DEBUG] Env:" + isEnvDev);
 } else {
   axios.defaults.baseURL = "VITE_BACKEND_API_BASE_URL";

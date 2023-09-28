@@ -31,12 +31,12 @@ const asideLgCloseClick = (event) => {
       <div :class="styleStore.asideBrandStyle"
         class="flex flex-row h-14 items-center justify-between dark:bg-slate-900">
         <div class="text-center flex-1 lg:text-center lg:pl-6 xl:text-center xl:pl-0">
-          <a href="/"> PPD
+          <a href="/"> MINI
             <BaseIcon
               :path="mdiHome"
               class="flex-none"
               w="w-16"
-              :size="18" /> Dashboard
+              :size="18" /> DQM
           </a>
         </div>
         <button class=" lg:inline-block xl:hidden p-3" @click.prevent="asideLgCloseClick">

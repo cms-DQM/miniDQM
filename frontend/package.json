@@ -1,5 +1,5 @@
 {
-  "name": "ppd-dashboard",
+  "name": "minidqm",
   "version": "0.0.1",
   "scripts": {
     "dev": "vite",
