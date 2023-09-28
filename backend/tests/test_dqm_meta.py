@@ -1,39 +1,54 @@
-# #!/usr/bin/env python
-# # -*- coding: utf-8 -*-
-# """
-# Author      : Ceyhun Uzunoglu <ceyhunuzngl AT gmail [DOT] com>
-# Description : DQM meta store tests
-# """
-# import os
-# import subprocess
-# from backend.client.dqm_meta_client import DqmMetaStoreClient
-
-# test_data_last_run_in_DQMGUI_data = 365755
-# test_data_last_run_root_files = [
-#     'backend/tests/data/DQMGUI_data/Run2023//HLTPhysics/0003657xx/DQM_V0001_R000365755__HLTPhysics__Run2023A-PromptReco-v1__DQMIO.root']
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Author      : Ceyhun Uzunoglu <ceyhunuzngl AT gmail [DOT] com>
+Description : DQM meta store tests
+"""
+import pytest, os
+from backend.dqm_meta import eos_grinder
+from backend.dqm_meta import client
+from backend.dqm_meta.models import *
 
 
-# def test_dqm_meta_eos_grinder_and_client(config_test):
-#     """Test dqm_meta.eos_grinder"""
-#     # --- Using confi_test yaml file, run eos_grinder to create JSON DQM meta store file. FAST_API_CONF en var is set in conftest.py
-#     r = subprocess.run(["python", "backend/dqm_meta/eos_grinder.py"], shell=True)
+@pytest.fixture
+def eos_grinder_run(config_test):
+    # fixture to initialize EOS Grinder run
+    eos_grinder.run(config_test)
+    yield "I grinded EOS mock directory"
+    os.remove(config_test.dqm_meta_store.find_tmp_results_file)
+    os.remove(config_test.dqm_meta_store.meta_store_json_file)
 
-#     # Check script run successfully
-#     assert r.returncode == 0
 
-#     # --- Read temporary find command results file and count its lines to match it with the actual ROOT file count in test directory
-#     # To understand what is going on, run `tree backend/tests/data/DQMGUI_data/` command
-#     with open(config_test.dqm_meta_store.find_tmp_results_file) as f:
-#         find_tmp_results_line_cnt = len(f.readlines())
+@pytest.fixture
+def dqm_client(config_test, eos_grinder_run) -> DqmMetaStore:
+    # fixture to initialize DMQ METADATA CLIENT which depends on eos_grinder_run
+    print(eos_grinder_run)
+    dqm_client = client.get_dqm_store(config=config_test)
+    return dqm_client
 
-#     base_eos_dir = config_test.dqm_meta_store.base_dqm_eos_dir
-#     run_year_dir = os.path.join(base_eos_dir, os.listdir(base_eos_dir)[0])
-#     detector_dir = os.path.join(run_year_dir, os.listdir(run_year_dir)[0])
-#     run_dir = os.path.join(detector_dir, os.listdir(detector_dir)[0])
-#     assert len(os.listdir(run_dir)) == find_tmp_results_line_cnt
 
-#     # --- Test DqmMetaStoreClient
-#     store_client = DqmMetaStoreClient(config=config_test)
+def test_eos_grinder_run(config_test, eos_grinder_run, create_histograms_for_test):
+    # run eos_grinder
+    print(eos_grinder_run)
+    with open(config_test.dqm_meta_store.find_tmp_results_file) as f:
+        find_tmp_results_line_cnt = len(f.readlines())
 
-#     assert store_client.get_last_run() == test_data_last_run_in_DQMGUI_data
-#     assert store_client.get_last_run_root_files() == test_data_last_run_root_files
+    # Check all root files are parsed by eos_grinder
+    assert find_tmp_results_line_cnt == len(create_histograms_for_test)
+
+
+def test_max_run_number(dqm_client, run_size, era_suffixes, init_run_num, era_run_jump):
+    assert dqm_client.get_max_run() == (era_run_jump * (len(era_suffixes) - 1)) + init_run_num + (run_size - 1)
+
+
+def test_get_meta_by_group_and_run(dqm_client):
+    assert dqm_client.get_meta_by_group_and_run("JetMET1", 100000) == DqmMeta(
+        dataset="JetMET1/Run2023A-TEST-DATASET",
+        eos_directory="JetMET1",
+        era="Run2023A",
+        root_file="backend/tests/DQMGUI_data/Run2023/JetMET1/0001000xx/DQM_V0001_R000100000__JetMET1__Run2023A-TEST-DATASET__DQMIO.root",
+        run=100000,
+    )
+
+
+# TODO write more tests

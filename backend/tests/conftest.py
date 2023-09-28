@@ -22,7 +22,29 @@ def config_test() -> Generator[Config, Any, None]:
     """Create modified Config for test"""
     conf = get_config()
     conf.dqm_meta_store.base_dqm_eos_dir = "backend/tests/DQMGUI_data"
+    conf.dqm_meta_store.last_n_run_years = 1
     yield conf
+
+
+@pytest.fixture(scope="session")
+def run_size() -> int:
+    return 3
+
+
+@pytest.fixture(scope="session")
+def init_run_num() -> int:
+    return 100000
+
+
+@pytest.fixture(scope="session")
+def era_run_jump() -> int:
+    """ERAs are mostly in different 0001234xx directories, so increase each era run num with 100"""
+    return 100
+
+
+@pytest.fixture(scope="session")
+def era_suffixes() -> int:
+    return ["A", "B", "C", "D", "E"]
 
 
 @pytest.fixture(scope="session")
@@ -33,7 +55,7 @@ def fast_api_client_test() -> Generator[TestClient, Any, None]:
 
 
 @pytest.fixture(scope="session")
-def create_histograms_for_test(config_test) -> List[str]:
+def create_histograms_for_test(config_test, run_size, era_suffixes, init_run_num, era_run_jump) -> List[str]:
     """Create all histograms in plots.yaml for each group and each era.
 
     To not include another parameter in pytest as "--basetemp", tmp_path_factory is not used
@@ -45,15 +67,12 @@ def create_histograms_for_test(config_test) -> List[str]:
     base_directory = pathlib.Path(config_test.dqm_meta_store.base_dqm_eos_dir) / f"Run{year}"
 
     root_file_fmt = "DQM_V0001_R{run9d}__{eosdir}__{era}-TEST-DATASET__DQMIO.root"
-    run_size = 3  # For each ERA of a group
-    era_run_jump = 100  # ERAs are mostly in different 0001234xx directories
-
-    eras = [f"Run{year}{e}" for e in ["A", "B", "C", "D", "E"]]  # eras full name, i.e. Run2023A
+    eras = [f"Run{year}{e}" for e in era_suffixes]  # eras full name, i.e. Run2023A
 
     # Iterare all groups and creates all histograms defined in plots.yaml in each era
     for group_conf in config_test.plots.groups:
         # Each group will have same histograms of same numbers
-        first_run = 100000  # First Run number with 6 digit, max Run digit is 9
+        first_run = init_run_num  # First Run number with 6 digit, max Run digit is 9
 
         group_dir = base_directory / group_conf.eos_directory
 
@@ -72,29 +91,46 @@ def create_histograms_for_test(config_test) -> List[str]:
 
     yield all_created_files
     # Delete after session
-    # shutil.rmtree(base_directory.parent)  # DQMGUI_data is parent
+    # ATTENTION: YOU CAN USE FOR DEVELOPMENT TOO SO COMMENT OUT DELETION TO SEE HISTS
+    shutil.rmtree(base_directory.parent)  # DQMGUI_data is parent
 
 
 def util_create_root_hist(root_file: str, group_conf: ConfigPlotsGroup, run: int):
-    """Creates test histograms in th root file with the definitions in plots.yaml config only for TH1F"""
+    """Creates test histograms in th root file with the definitions in plots.yaml config only for TH1F
+
+    PYROOT has limited functionalities to create object sub directory and iterate it. That's why, iterating all
+    the sub directories and creating them, writing test plot to that directory is only possible with this way.
+    """
     tdirectory = group_conf.tdirectory.format(run_num_int=run)
+    tdirectory_subdir_list = tdirectory.split("/")
+    plot_dirs = sorted(set([p.name for p in group_conf.plots]))  # Their directories can be same, so get set
+    plot_subdir_list = [p_dir.split("/")[:-1] for p_dir in plot_dirs]  # Only directories, no name
 
-    # PYROOT's limited functionality force to create directory only once
-    plot_dirs = set([tdirectory + "/" + p.name for p in group_conf.plots])
-    for dir_str in plot_dirs:
-        with TFile(root_file, "UPDATE") as tf:
-            for dir in dir_str.split("/")[:-1]:
-                if not tf.Get(dir):  # If subdir is not created before
-                    subdir = tf.mkdir(dir)
-                    tf.cd(dir)
+    with TFile(root_file, "UPDATE") as tf:
+        # === Create tdirectory subdirs first
 
-    for dir_str in plot_dirs:
-        dir = "".join(dir_str.split("/")[:-1])  # before last
-        name = dir_str.split("/")[-1]  # last
-        with TFile(root_file, "UPDATE") as tf:
-            tf.cd(dir)
-            h = TH1F(name, name, 64, -4, 4)
-            h.FillRandom("gaus")
-            tf.WriteObject(h, "myHist")
-            tf.Save()
-            del h
+        # It is the child directory of tdirectory: "Run Summary" mostly
+        pivot_main_dir = tf.mkdir(tdirectory_subdir_list[0])
+        for d in tdirectory_subdir_list[1:]:  # skip first parent dir which is already created
+            pivot_main_dir = pivot_main_dir.mkdir(d)
+
+        # === Create sub directories of histograms which come in their name actually
+        for plot_subdirs in plot_subdir_list:
+            pivot_plot_dir = pivot_main_dir  # start from the child directory of tdirectory
+            for d in plot_subdirs:  # Iterate pivot subdirs and create if not exist
+                if not pivot_plot_dir.GetDirectory(d):
+                    pivot_plot_dir = pivot_plot_dir.mkdir(d)
+                else:
+                    pivot_plot_dir = pivot_plot_dir.GetDirectory(d)
+
+        # === It's certain that all subdirectories are created in the previous steps,
+        #     so let's get childe Directory object and write hist there
+        for plot_conf in group_conf.plots:
+            plot_dir = "/".join(plot_conf.name.split("/")[:-1])  # before last
+            name = plot_conf.name.split("/")[-1]  # last
+            root_plot_dir = pivot_main_dir.GetDirectory(plot_dir)
+            # Create histogram and write to child directory
+            __h = TH1F(name, name, 64, -4, 4)
+            __h.FillRandom("gaus")
+            root_plot_dir.WriteObject(__h, name)
+            del __h

@@ -22,7 +22,7 @@ import time
 from datetime import datetime
 from typing import Union
 
-from backend.config import get_config, get_config_group_directories
+from backend.config import Config, get_config
 from .models import DqmMetaStore, DqmMeta
 
 logging.basicConfig(level=get_config().loglevel.upper())
@@ -32,17 +32,21 @@ CACHE_REFRESH_PERIOD_SECS = 10 * 60  # 10 minutes
 # EOS GRINDER ----------------------------------------------------------------
 
 
-def run():
+def run(conf: Config | None):
     """Run with given yaml config
 
     Find DQMGui ROOT files in EOS directories in last N Run years and store them as DqmMetaStore schema
     """
     # Get config as object
     __start_time = time.time()
-    dqm_meta_conf = get_config().dqm_meta_store
+
+    if not conf:  # for test
+        conf = get_config()
+
+    dqm_meta_conf = conf.dqm_meta_store
 
     # Get config group directories to discard others
-    conf_group_directories = get_config_group_directories()
+    conf_group_directories = conf.get_config_group_directories()
     logging.info(f"DQM EOS grinder is starting... Allowed directories: {conf_group_directories}")
 
     # Get values from config file

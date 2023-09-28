@@ -81,6 +81,11 @@ class Config(BaseModel):
         else:
             return [item.eos_directory for item in self.plots.groups if item.group_name in group_names]
 
+    def get_config_group_directories(self) -> List:
+        """Returns detector group directories"""
+        c = get_config()
+        return [item.eos_directory for item in c.plots.groups]
+
 
 def read_file(file_path: str):
     """Read config from given file and return it"""
@@ -113,9 +118,3 @@ def get_config():
 
     __config_cache = Config(**server_config_dict)
     return __config_cache
-
-
-def get_config_group_directories() -> List:
-    """Returns detector group directories"""
-    c = get_config()
-    return [item.eos_directory for item in c.plots.groups]

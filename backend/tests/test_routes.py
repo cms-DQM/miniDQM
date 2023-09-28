@@ -15,6 +15,6 @@ def test_version(fast_api_client_test):
     assert msg == str(__version__)
 
 
-def test_mock_histograms_len(create_histograms_for_test):
-    # with 3 runs per era and 5 eras in total, 1 plot for each
-    assert len(create_histograms_for_test) % (5 * 3) == 0
+def test_root_files_size(config_test, create_histograms_for_test, run_size, era_suffixes):
+    groups_size = len(config_test.plots.groups)
+    assert len(create_histograms_for_test) == groups_size * run_size * len(era_suffixes)
