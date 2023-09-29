@@ -1,6 +1,6 @@
 # Server configs, check run.sh
 # backend: cmsweb.cern.ch/dqm/mini_back/api/v1
-# Auth proxy: `https://cmsweb.cern.ch/dqm/mini_back` <> `minidqm.dbs.svc.cluster.local:8081`
+# Auth proxy: `https://cmsweb.cern.ch/dqm/mini_back` <> `minidqm.dqm.svc.cluster.local:8081`
 host: '0.0.0.0'
 port: 8081
 base_url: '/api/v1'
